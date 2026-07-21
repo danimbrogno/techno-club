@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -55,7 +56,8 @@ public final class ZoneRepository {
                 continue;
             }
 
-            loaded.add(LockedZone.of(name, world, minX, minY, minZ, maxX, maxY, maxZ));
+            boolean enabled = zone.getBoolean("enabled", true);
+            loaded.add(LockedZone.of(name, world, enabled, minX, minY, minZ, maxX, maxY, maxZ));
         }
 
         return new ZoneRepository(loaded, denyMessage);
@@ -76,6 +78,7 @@ public final class ZoneRepository {
             loaded.add(LockedZone.of(
                     name,
                     zone.world(),
+                    zone.enabled(),
                     zone.minX(),
                     zone.minY(),
                     zone.minZ(),
@@ -95,9 +98,18 @@ public final class ZoneRepository {
         return denyMessage;
     }
 
+    public Optional<LockedZone> findByName(String name) {
+        for (LockedZone zone : zones) {
+            if (zone.name().equalsIgnoreCase(name)) {
+                return Optional.of(zone);
+            }
+        }
+        return Optional.empty();
+    }
+
     public boolean isLocked(String world, int x, int y, int z) {
         for (LockedZone zone : zones) {
-            if (zone.contains(world, x, y, z)) {
+            if (zone.enabled() && zone.contains(world, x, y, z)) {
                 return true;
             }
         }
@@ -119,5 +131,18 @@ public final class ZoneRepository {
         return section.getInt(path);
     }
 
-    record ZoneEntry(String world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {}
+    record ZoneEntry(
+            String world,
+            boolean enabled,
+            int minX,
+            int minY,
+            int minZ,
+            int maxX,
+            int maxY,
+            int maxZ
+    ) {
+        ZoneEntry(String world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+            this(world, true, minX, minY, minZ, maxX, maxY, maxZ);
+        }
+    }
 }

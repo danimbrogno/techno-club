@@ -3,3 +3,13 @@ version: ${version}
 main: io.github.danimbrogno.regionlock.RegionLockPlugin
 api-version: '1.21'
 description: Locks block place/break inside named coordinate zones from config.
+commands:
+  regionlock:
+    description: Toggle RegionLock globally or per zone
+    usage: /regionlock <on|off|toggle|status|reload> [zone]
+    permission: regionlock.toggle
+    aliases: [rlock]
+permissions:
+  regionlock.toggle:
+    description: Toggle RegionLock protection globally or per zone
+    default: op

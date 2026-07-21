@@ -1,11 +1,16 @@
+# Master switch. When false, no zones are enforced (same as /regionlock off).
+enabled: true
+
 # Message sent when a player tries to place or break a block in a locked zone.
 # Set to "" for a silent cancel.
-deny-message: "You may not break blocks in this area"
+deny-message: "You may not break or place blocks here"
 
 # Named axis-aligned boxes. Corner order does not matter; bounds are inclusive.
 # Tip: a short Y range (e.g. 64–70) only locks those layers — blocks above/below can still break.
+# Per-zone enabled defaults to true; toggle with /regionlock on|off|toggle <zone>
 zones:
   technoclubhouse:
+    enabled: true
     world: world
     min: { x: -471, y: -64, z: 2941 }
     max: { x: -450, y: 320, z: 2951 }

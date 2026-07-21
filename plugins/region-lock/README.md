@@ -17,10 +17,12 @@ Copy the JAR into your Paper server's `plugins/` folder.
 Edit `plugins/RegionLock/config.yml` on the server (generated on first run):
 
 ```yaml
+enabled: true
 deny-message: "This area is locked."
 
 zones:
   spawn-pad:
+    enabled: true
     world: world
     min: { x: -10, y: 64, z: -10 }
     max: { x: 10, y: 80, z: 10 }
@@ -29,10 +31,23 @@ zones:
 - Corner order does not matter; bounds are inclusive.
 - Empty `zones: {}` means nothing is locked.
 - Set `deny-message: ""` for a silent cancel.
-- Restart the plugin or server after editing config (or use a plugin reload that calls `reloadConfig`).
+- `enabled: false` (global or per-zone) disables enforcement; persisted by commands.
 
-## Behavior (v1)
+## Commands (ops / `regionlock.toggle`)
 
-- Cancels `BlockBreakEvent` and `BlockPlaceEvent` inside any loaded zone
-- Applies to every player (no bypass)
+| Command | Effect |
+|---------|--------|
+| `/regionlock on` | Global protection on |
+| `/regionlock off` | Global protection off |
+| `/regionlock toggle` | Flip global on/off |
+| `/regionlock on\|off\|toggle <zone>` | Per-zone switch |
+| `/regionlock status` | Show global + zone state |
+| `/regionlock reload` | Reload `config.yml` |
+
+Alias: `/rlock`
+
+## Behavior
+
+- Cancels place/break (with restore fallback) inside any **enabled** zone while global is on
+- Applies to every player (no per-player bypass)
 - Does not cover explosions, pistons, fire, or other block damage

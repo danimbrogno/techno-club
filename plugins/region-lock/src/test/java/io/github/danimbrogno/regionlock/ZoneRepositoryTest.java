@@ -29,6 +29,19 @@ class ZoneRepositoryTest {
     }
 
     @Test
+    void disabledZoneIsNotLocked() {
+        Map<String, ZoneRepository.ZoneEntry> entries = Map.of(
+                "spawn-pad", new ZoneRepository.ZoneEntry("world", false, -10, 64, -10, 10, 80, 10)
+        );
+
+        ZoneRepository repo = ZoneRepository.fromEntries(entries, "Locked!", logger);
+
+        assertFalse(repo.isLocked("world", 0, 70, 0));
+        assertTrue(repo.findByName("spawn-pad").isPresent());
+        assertFalse(repo.findByName("spawn-pad").get().enabled());
+    }
+
+    @Test
     void skipsMissingWorld() {
         Map<String, ZoneRepository.ZoneEntry> entries = Map.of(
                 "bad", new ZoneRepository.ZoneEntry("  ", 0, 0, 0, 1, 1, 1)

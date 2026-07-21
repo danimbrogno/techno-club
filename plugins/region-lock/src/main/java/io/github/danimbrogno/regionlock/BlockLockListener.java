@@ -88,7 +88,7 @@ public final class BlockLockListener implements Listener {
     }
 
     private boolean isLocked(Block block) {
-        if (block == null) {
+        if (block == null || !plugin.isProtectionActive()) {
             return false;
         }
         return plugin.zones().isLocked(
@@ -122,7 +122,7 @@ public final class BlockLockListener implements Listener {
         int y = block.getY();
         int z = block.getZ();
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (!plugin.zones().isLocked(worldName, x, y, z)) {
+            if (!plugin.isProtectionActive() || !plugin.zones().isLocked(worldName, x, y, z)) {
                 return;
             }
             Block current = block.getWorld().getBlockAt(x, y, z);
