@@ -48,6 +48,8 @@ Alias: `/rlock`
 
 ## Behavior
 
-- Cancels place/break (with restore fallback) inside any **enabled** zone while global is on
+- Players entering an **enabled** zone (while global is on) are switched to **Adventure** mode and shown `deny-message`
+- Leaving the zone restores their previous game mode
+- Place/break events are still cancelled as a backup
 - Applies to every player (no per-player bypass)
 - Does not cover explosions, pistons, fire, or other block damage
