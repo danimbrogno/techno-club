@@ -193,8 +193,8 @@ jobs:
       - name: Rsync JARs to server
         if: steps.detect.outputs.has_units == 'true'
         run: |
-          # --omit-dir-times: tcdeploy can write files but not utime the plugins/ dir.
-          rsync -avz --omit-dir-times \
+          # tcdeploy can write JARs but cannot chown/chmod/utime the plugins/ directory.
+          rsync -rlDzv --omit-dir-times --no-perms --no-owner --no-group \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
             _deploy/ \
             "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/plugins/"
