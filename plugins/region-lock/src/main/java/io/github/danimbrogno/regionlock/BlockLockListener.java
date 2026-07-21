@@ -3,6 +3,7 @@ package io.github.danimbrogno.regionlock;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
@@ -39,7 +40,8 @@ public final class BlockLockListener implements Listener {
         event.setCancelled(true);
         event.setDropItems(false);
         notifyDenied(event.getPlayer());
-        restoreNextTick(block, snapshot);
+        // Always resync the client — cancel alone often leaves a ghost air block.
+        resync(event.getPlayer(), block, snapshot);
     }
 
     /**
@@ -54,7 +56,7 @@ public final class BlockLockListener implements Listener {
         BlockData snapshot = block.getBlockData().clone();
         event.setCancelled(true);
         notifyDenied(event.getPlayer());
-        restoreNextTick(block, snapshot);
+        resync(event.getPlayer(), block, snapshot);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -62,8 +64,10 @@ public final class BlockLockListener implements Listener {
         if (!isLocked(event.getBlock())) {
             return;
         }
+        BlockData prior = event.getBlockReplacedState().getBlockData().clone();
         event.setCancelled(true);
         notifyDenied(event.getPlayer());
+        resync(event.getPlayer(), event.getBlock(), prior);
     }
 
     /**
@@ -84,7 +88,7 @@ public final class BlockLockListener implements Listener {
         BlockData snapshot = block.getBlockData().clone();
         event.setCancelled(true);
         notifyDenied(event.getPlayer());
-        restoreNextTick(block, snapshot);
+        resync(event.getPlayer(), block, snapshot);
     }
 
     private boolean isLocked(Block block) {
@@ -116,11 +120,20 @@ public final class BlockLockListener implements Listener {
         player.sendMessage(message);
     }
 
-    private void restoreNextTick(Block block, BlockData snapshot) {
+    /**
+     * Push the authoritative block to the digging/placing player immediately and next tick.
+     * If the server block was actually removed (cancel ignored), restore it first.
+     */
+    private void resync(Player player, Block block, BlockData snapshot) {
+        Location location = block.getLocation();
+        sendClientBlock(player, location, snapshot);
+
         String worldName = block.getWorld().getName();
         int x = block.getX();
         int y = block.getY();
         int z = block.getZ();
+        UUID playerId = player == null ? null : player.getUniqueId();
+
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!plugin.isProtectionActive() || !plugin.zones().isLocked(worldName, x, y, z)) {
                 return;
@@ -129,6 +142,16 @@ public final class BlockLockListener implements Listener {
             if (!current.getBlockData().equals(snapshot)) {
                 current.setBlockData(snapshot, false);
             }
+            BlockData authoritative = current.getBlockData();
+            Player online = playerId == null ? null : plugin.getServer().getPlayer(playerId);
+            sendClientBlock(online, current.getLocation(), authoritative);
         });
+    }
+
+    private static void sendClientBlock(Player player, Location location, BlockData data) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        player.sendBlockChange(location, data);
     }
 }
