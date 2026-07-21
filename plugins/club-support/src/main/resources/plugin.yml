@@ -1,0 +1,5 @@
+name: ClubSupport
+version: ${version}
+main: io.github.danimbrogno.clubsupport.ClubSupportPlugin
+api-version: '1.21'
+description: Always-on Techno Club support plugin. Runs 24/7 alongside lessons.

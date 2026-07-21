@@ -1,0 +1,5 @@
+name: StarterLesson
+version: ${version}
+main: io.github.danimbrogno.starterlesson.StarterLessonPlugin
+api-version: '1.21'
+description: Blank Techno Club lesson plugin. Copy this folder to start a new lesson.
