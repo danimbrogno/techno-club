@@ -1,0 +1,208 @@
+# Deploy changed Paper plugin JARs to aztec-validator on merge to main.
+#
+# Network: runner joins Tailscale as tag:ci-technoclub, then SSH/rsync as tcdeploy.
+#
+# Required — GitHub Environment "dev":
+#   Secrets:
+#     TAILSCALE_OAUTH_CLIENT_SECRET
+#     DEPLOY_SSH_KEY
+#   Variables:
+#     TAILSCALE_OAUTH_CLIENT_ID
+#     SSH_HOST          (aztec-validator)
+#     SSH_USER          (tcdeploy)
+#     SSH_KNOWN_HOSTS   (ssh-keyscan -H aztec-validator)
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_all:
+        description: Build and deploy all plugins/lessons
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-technoclub
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy plugins
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect units to build
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          is_deployable_unit() {
+            local dir="$1"
+            [[ -f "$dir/gradlew" || -f "$dir/build.gradle.kts" || -f "$dir/build.gradle" ]]
+          }
+
+          list_all_units() {
+            local d
+            for d in plugins/*/ lessons/*/; do
+              [[ -d "$d" ]] || continue
+              d="${d%/}"
+              if is_deployable_unit "$d"; then
+                printf '%s\n' "$d"
+              fi
+            done | sort -u
+          }
+
+          DEPLOY_ALL=false
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ inputs.deploy_all }}" == "true" ]]; then
+              DEPLOY_ALL=true
+            fi
+          fi
+
+          SHARED_HIT=false
+          UNITS=()
+
+          if [[ "$DEPLOY_ALL" == "true" ]]; then
+            mapfile -t UNITS < <(list_all_units)
+          else
+            BEFORE="${{ github.event.before }}"
+            if [[ -z "$BEFORE" || "$BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+              BEFORE="$(git rev-parse HEAD^ 2>/dev/null || true)"
+            fi
+
+            if [[ -z "$BEFORE" ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              echo "No usable base commit; building all units"
+              mapfile -t UNITS < <(list_all_units)
+            else
+              mapfile -t CHANGED < <(git diff --name-only "$BEFORE" "${{ github.sha }}")
+              for path in "${CHANGED[@]}"; do
+                case "$path" in
+                  .github/workflows/deploy.yml|scripts/remote-restart.sh)
+                    SHARED_HIT=true
+                    ;;
+                  gradle/*|**/gradle/wrapper/*|settings.gradle.kts|settings.gradle|build.gradle.kts|build.gradle)
+                    # Root-level shared build files (if added later)
+                    if [[ "$path" != plugins/* && "$path" != lessons/* ]]; then
+                      SHARED_HIT=true
+                    fi
+                    ;;
+                esac
+
+                if [[ "$path" == plugins/* || "$path" == lessons/* ]]; then
+                  unit="$(echo "$path" | cut -d/ -f1-2)"
+                  if is_deployable_unit "$unit"; then
+                    UNITS+=("$unit")
+                  fi
+                fi
+              done
+
+              if [[ "$SHARED_HIT" == "true" ]]; then
+                echo "Shared CI/build files changed; building all units"
+                mapfile -t UNITS < <(list_all_units)
+              else
+                mapfile -t UNITS < <(printf '%s\n' "${UNITS[@]:-}" | sed '/^$/d' | sort -u)
+              fi
+            fi
+          fi
+
+          if [[ ${#UNITS[@]} -eq 0 ]]; then
+            echo "units="
+            echo "has_units=false" >> "$GITHUB_OUTPUT"
+            echo "No plugin/lesson units to build"
+            exit 0
+          fi
+
+          {
+            echo "units<<EOF"
+            printf '%s\n' "${UNITS[@]}"
+            echo "EOF"
+            echo "has_units=true"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Units to build:"
+          printf '  - %s\n' "${UNITS[@]}"
+
+      - name: Set up JDK 21
+        if: steps.detect.outputs.has_units == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build plugin JARs
+        if: steps.detect.outputs.has_units == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _deploy
+          while IFS= read -r unit; do
+            [[ -n "$unit" ]] || continue
+            echo "::group::Build $unit"
+            (
+              cd "$unit"
+              chmod +x ./gradlew
+              ./gradlew --no-daemon build
+            )
+            # Prefer non-plain, non-sources, non-javadoc jars
+            mapfile -t jars < <(
+              find "$unit/build/libs" -maxdepth 1 -type f -name '*.jar' \
+                ! -name '*-sources.jar' \
+                ! -name '*-javadoc.jar' \
+                ! -name '*-plain.jar' \
+                | sort
+            )
+            if [[ ${#jars[@]} -eq 0 ]]; then
+              echo "ERROR: no deployable JAR in $unit/build/libs" >&2
+              exit 1
+            fi
+            for jar in "${jars[@]}"; do
+              cp -v "$jar" _deploy/
+            done
+            echo "::endgroup::"
+          done <<< "${{ steps.detect.outputs.units }}"
+
+          echo "Staged JARs:"
+          ls -la _deploy/
+
+      - name: Connect to Tailscale
+        if: steps.detect.outputs.has_units == 'true'
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ vars.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci-technoclub
+
+      - name: Configure SSH
+        if: steps.detect.outputs.has_units == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ vars.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync JARs to server
+        if: steps.detect.outputs.has_units == 'true'
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            _deploy/ \
+            "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/plugins/"
+
+      - name: Restart Minecraft server
+        if: steps.detect.outputs.has_units == 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}" \
+            'sudo /usr/local/bin/restart-technoclub.sh'

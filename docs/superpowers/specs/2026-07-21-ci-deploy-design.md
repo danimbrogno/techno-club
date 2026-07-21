@@ -78,7 +78,7 @@ Trigger: `push` to `main`, and `workflow_dispatch` (boolean input `deploy_all`, 
 
 Concurrency: group `deploy-technoclub`, `cancel-in-progress: false` (never cancel a mid-restart deploy).
 
-Environment: GitHub Environment `technoclub` (holds secrets/vars below).
+Environment: GitHub Environment `dev` (holds secrets/vars below).
 
 1. **Checkout** full history depth needed for diff (`fetch-depth: 0` or `2` as required).
 2. **Detect units** to build (paths above).
@@ -148,9 +148,9 @@ OAuth client for techno-club: writable **Auth keys** scope only; tag **`tag:ci-t
 
 Disable key expiry on `aztec-validator` to avoid lockouts.
 
-## GitHub Environment: `technoclub`
+## GitHub Environment: `dev`
 
-Create Environment **`technoclub`** on the repo. Workflow job sets `environment: technoclub`.
+Use Environment **`dev`** on the repo. Workflow job sets `environment: dev`.
 
 ### Variables
 
