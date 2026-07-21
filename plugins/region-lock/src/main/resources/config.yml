@@ -1,0 +1,10 @@
+# Message sent when a player tries to place or break a block in a locked zone.
+# Set to "" for a silent cancel.
+deny-message: "You may not break blocks in this area"
+
+# Named axis-aligned boxes. Corner order does not matter; bounds are inclusive.
+zones:
+  technoclubhouse:
+    world: world
+    min: { x: -450, y: 64, z: -2941 }
+    max: { x: -471, y: 70, z: 2951 }
