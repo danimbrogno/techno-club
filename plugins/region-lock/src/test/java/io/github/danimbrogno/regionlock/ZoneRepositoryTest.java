@@ -55,9 +55,10 @@ class ZoneRepositoryTest {
 
     @Test
     void emptyEntriesYieldEmptyRepository() {
-        ZoneRepository repo = ZoneRepository.fromEntries(Map.of(), "msg", logger);
+        ZoneRepository repo = ZoneRepository.fromEntries(Map.of(), "msg", "bye", logger);
 
         assertTrue(repo.zones().isEmpty());
         assertEquals("msg", repo.denyMessage());
+        assertEquals("bye", repo.leaveMessage());
     }
 }

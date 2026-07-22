@@ -19,6 +19,7 @@ Edit `plugins/RegionLock/config.yml` on the server (generated on first run):
 ```yaml
 enabled: true
 deny-message: "This area is locked."
+leave-message: "You left the locked area."
 
 zones:
   spawn-pad:
@@ -30,8 +31,9 @@ zones:
 
 - Corner order does not matter; bounds are inclusive.
 - Empty `zones: {}` means nothing is locked.
-- Set `deny-message: ""` for a silent cancel.
+- Set `deny-message` / `leave-message` to `""` to silence.
 - `enabled: false` (global or per-zone) disables enforcement; persisted by commands.
+- **Deploy does not overwrite** `plugins/RegionLock/config.yml` on the server — edit that file for live bounds, then `/regionlock reload`.
 
 ## Commands (ops / `regionlock.toggle`)
 
@@ -49,7 +51,7 @@ Alias: `/rlock`
 ## Behavior
 
 - Players entering an **enabled** zone (while global is on) are switched to **Adventure** mode and shown `deny-message`
-- Leaving the zone restores their previous game mode
+- Leaving the zone restores their previous game mode and shows `leave-message`
 - Place/break attempts are cancelled (backup) and also show `deny-message` (rate-limited)
 - Applies to every player (no per-player bypass)
 - Does not cover explosions, pistons, fire, or other block damage

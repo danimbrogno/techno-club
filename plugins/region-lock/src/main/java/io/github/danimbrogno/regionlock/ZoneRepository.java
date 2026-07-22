@@ -11,23 +11,28 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 public final class ZoneRepository {
 
+    private static final int LARGE_AXIS_BLOCKS = 128;
+
     private final List<LockedZone> zones;
     private final String denyMessage;
+    private final String leaveMessage;
 
-    private ZoneRepository(List<LockedZone> zones, String denyMessage) {
+    private ZoneRepository(List<LockedZone> zones, String denyMessage, String leaveMessage) {
         this.zones = List.copyOf(zones);
         this.denyMessage = denyMessage == null ? "" : denyMessage;
+        this.leaveMessage = leaveMessage == null ? "" : leaveMessage;
     }
 
     public static ZoneRepository empty() {
-        return new ZoneRepository(List.of(), "");
+        return new ZoneRepository(List.of(), "", "");
     }
 
     public static ZoneRepository load(FileConfiguration config, Logger logger) {
         String denyMessage = config.getString("deny-message", "This area is locked.");
+        String leaveMessage = config.getString("leave-message", "You left the locked area.");
         ConfigurationSection zonesSection = config.getConfigurationSection("zones");
         if (zonesSection == null) {
-            return new ZoneRepository(List.of(), denyMessage);
+            return new ZoneRepository(List.of(), denyMessage, leaveMessage);
         }
 
         List<LockedZone> loaded = new ArrayList<>();
@@ -57,16 +62,39 @@ public final class ZoneRepository {
             }
 
             boolean enabled = zone.getBoolean("enabled", true);
-            loaded.add(LockedZone.of(name, world, enabled, minX, minY, minZ, maxX, maxY, maxZ));
+            LockedZone lockedZone = LockedZone.of(name, world, enabled, minX, minY, minZ, maxX, maxY, maxZ);
+            loaded.add(lockedZone);
+            logger.info("Loaded zone '" + name + "': " + lockedZone.describeBounds()
+                    + (enabled ? "" : " [disabled]"));
+            if (lockedZone.sizeX() > LARGE_AXIS_BLOCKS
+                    || lockedZone.sizeZ() > LARGE_AXIS_BLOCKS) {
+                logger.warning("Zone '" + name + "' is very large on X/Z ("
+                        + lockedZone.sizeX() + "x" + lockedZone.sizeZ()
+                        + "). Enter/leave messages only fire when crossing the boundary — "
+                        + "check plugins/RegionLock/config.yml on the server (deploy does not overwrite it).");
+            }
         }
 
-        return new ZoneRepository(loaded, denyMessage);
+        return new ZoneRepository(loaded, denyMessage, leaveMessage);
     }
 
     /**
      * Test-friendly loader that does not require Bukkit configuration objects.
      */
-    static ZoneRepository fromEntries(Map<String, ZoneEntry> entries, String denyMessage, Logger logger) {
+    static ZoneRepository fromEntries(
+            Map<String, ZoneEntry> entries,
+            String denyMessage,
+            Logger logger
+    ) {
+        return fromEntries(entries, denyMessage, "", logger);
+    }
+
+    static ZoneRepository fromEntries(
+            Map<String, ZoneEntry> entries,
+            String denyMessage,
+            String leaveMessage,
+            Logger logger
+    ) {
         List<LockedZone> loaded = new ArrayList<>();
         for (Map.Entry<String, ZoneEntry> entry : entries.entrySet()) {
             String name = entry.getKey();
@@ -87,7 +115,7 @@ public final class ZoneRepository {
                     zone.maxZ()
             ));
         }
-        return new ZoneRepository(loaded, denyMessage);
+        return new ZoneRepository(loaded, denyMessage, leaveMessage);
     }
 
     public List<LockedZone> zones() {
@@ -96,6 +124,10 @@ public final class ZoneRepository {
 
     public String denyMessage() {
         return denyMessage;
+    }
+
+    public String leaveMessage() {
+        return leaveMessage;
     }
 
     public Optional<LockedZone> findByName(String name) {

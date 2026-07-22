@@ -107,7 +107,8 @@ public final class RegionLockCommand implements CommandExecutor, TabCompleter {
             return;
         }
         for (LockedZone zone : zones) {
-            sender.sendMessage("- " + zone.name() + ": " + (zone.enabled() ? "ON" : "OFF"));
+            sender.sendMessage("- " + zone.name() + ": " + (zone.enabled() ? "ON" : "OFF")
+                    + " — " + zone.describeBounds());
         }
     }
 

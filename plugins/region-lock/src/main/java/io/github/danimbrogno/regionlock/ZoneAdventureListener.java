@@ -25,6 +25,10 @@ public final class ZoneAdventureListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
+        // PlayerTeleportEvent extends PlayerMoveEvent — handled in onTeleport to avoid double announce.
+        if (event instanceof PlayerTeleportEvent) {
+            return;
+        }
         Location from = event.getFrom();
         Location to = event.getTo();
         if (to == null) {
@@ -37,7 +41,7 @@ public final class ZoneAdventureListener implements Listener {
                 && from.getWorld().equals(to.getWorld())) {
             return;
         }
-        adventure.sync(event.getPlayer(), to, true);
+        adventure.syncMove(event.getPlayer(), from, to, true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -46,7 +50,7 @@ public final class ZoneAdventureListener implements Listener {
         if (to == null) {
             return;
         }
-        adventure.sync(event.getPlayer(), to, true);
+        adventure.syncMove(event.getPlayer(), event.getFrom(), to, true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

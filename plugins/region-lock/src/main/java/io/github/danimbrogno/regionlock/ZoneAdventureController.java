@@ -42,68 +42,110 @@ public final class ZoneAdventureController {
     }
 
     /**
-     * Sync the player's game mode with whether they are inside a locked zone.
-     *
-     * @param announceEnter when true and the player newly enters, send deny-message
+     * Sync from a movement/teleport using both endpoints so enter/leave is edge-triggered.
      */
-    public void sync(Player player, Location location, boolean announceEnter) {
-        if (player == null) {
+    public void syncMove(Player player, Location from, Location to, boolean announce) {
+        if (player == null || to == null) {
             return;
         }
+        boolean wasInside = from != null && isInsideActiveLock(from);
+        boolean nowInside = isInsideActiveLock(to);
+        applyTransition(player, wasInside, nowInside, announce);
+    }
 
+    /**
+     * Sync against a single location (join/respawn/reload).
+     */
+    public void sync(Player player, Location location, boolean announce) {
+        if (player == null || location == null) {
+            return;
+        }
+        boolean nowInside = isInsideActiveLock(location);
+        boolean managed = previousModes.containsKey(player.getUniqueId());
+        applyTransition(player, managed, nowInside, announce);
+    }
+
+    private void applyTransition(Player player, boolean wasInside, boolean nowInside, boolean announce) {
         UUID id = player.getUniqueId();
-        boolean inside = isInsideActiveLock(location);
         boolean managed = previousModes.containsKey(id);
 
-        if (inside && !managed) {
-            previousModes.put(id, player.getGameMode());
+        if (nowInside && !wasInside) {
+            enterZone(player, announce);
+            return;
+        }
+
+        if (!nowInside && wasInside) {
+            leaveZone(player, announce);
+            return;
+        }
+
+        // Heal desyncs: managed flag should match location.
+        if (nowInside && !managed) {
+            enterZone(player, announce);
+            return;
+        }
+
+        if (!nowInside && managed) {
+            leaveZone(player, announce);
+            return;
+        }
+
+        if (nowInside && player.getGameMode() != GameMode.ADVENTURE) {
             setGameModeSilently(player, GameMode.ADVENTURE);
-            if (announceEnter) {
-                sendEnterMessage(player);
-            }
-            return;
-        }
-
-        if (inside && managed) {
-            if (player.getGameMode() != GameMode.ADVENTURE) {
-                setGameModeSilently(player, GameMode.ADVENTURE);
-            }
-            return;
-        }
-
-        if (!inside && managed) {
-            GameMode previous = previousModes.remove(id);
-            setGameModeSilently(player, previous != null ? previous : GameMode.SURVIVAL);
         }
     }
 
-    public void syncAllOnline(boolean announceEnter) {
+    private void enterZone(Player player, boolean announce) {
+        UUID id = player.getUniqueId();
+        if (!previousModes.containsKey(id)) {
+            previousModes.put(id, player.getGameMode());
+        }
+        setGameModeSilently(player, GameMode.ADVENTURE);
+        if (announce) {
+            sendMessage(player, plugin.zones().denyMessage());
+        }
+    }
+
+    private void leaveZone(Player player, boolean announce) {
+        GameMode previous = previousModes.remove(player.getUniqueId());
+        if (previous != null) {
+            setGameModeSilently(player, previous);
+        }
+        if (announce) {
+            sendMessage(player, plugin.zones().leaveMessage());
+        }
+    }
+
+    public void syncAllOnline(boolean announce) {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
-            sync(player, player.getLocation(), announceEnter);
+            sync(player, player.getLocation(), announce);
         }
     }
 
     /** Restore every managed player (used when protection is turned off or plugin disables). */
     public void releaseAll() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
-            release(player);
+            release(player, false);
         }
         previousModes.clear();
     }
 
     public void release(Player player) {
+        release(player, false);
+    }
+
+    private void release(Player player, boolean announce) {
         if (player == null) {
             return;
         }
-        GameMode previous = previousModes.remove(player.getUniqueId());
-        if (previous != null && player.isOnline()) {
-            setGameModeSilently(player, previous);
+        if (!previousModes.containsKey(player.getUniqueId())) {
+            return;
         }
+        leaveZone(player, announce);
     }
 
-    private void sendEnterMessage(Player player) {
-        String message = plugin.zones().denyMessage();
-        if (!message.isBlank()) {
+    private static void sendMessage(Player player, String message) {
+        if (message != null && !message.isBlank()) {
             player.sendMessage(message);
         }
     }
