@@ -18,7 +18,9 @@ public final class LessonPortalPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        saveResource("layout.yml", false);
+        if (!new File(getDataFolder(), "layout.yml").exists()) {
+            saveResource("layout.yml", false);
+        }
 
         books = new BookFactory(this);
         store = new ActiveLessonStore(new File(getDataFolder(), "active-lesson.yml").toPath());
