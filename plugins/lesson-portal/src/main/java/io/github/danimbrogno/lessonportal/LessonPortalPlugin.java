@@ -32,6 +32,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
         store.current().ifPresent(id -> getLogger().info("Active lesson on startup: " + id));
 
         getServer().getPluginManager().registerEvents(new LecternListener(this), this);
+        getServer().getPluginManager().registerEvents(new PortalListener(this), this);
 
         getLogger().info("LessonPortal enabled!");
     }
