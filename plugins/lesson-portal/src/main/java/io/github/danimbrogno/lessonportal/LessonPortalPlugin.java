@@ -35,6 +35,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new LecternListener(this), this);
         getServer().getPluginManager().registerEvents(new PortalListener(this), this);
+        getServer().getPluginManager().registerEvents(new BookGuardListener(this), this);
 
         getLogger().info("LessonPortal enabled!");
     }
@@ -52,6 +53,9 @@ public final class LessonPortalPlugin extends JavaPlugin {
                 .map(LessonDefinition::id)
                 .collect(Collectors.toUnmodifiableSet()));
         shelfService.repair();
+        if (layout.hub().isEmpty()) {
+            getLogger().warning("Book guard disabled: hub bounds not configured.");
+        }
     }
 
     public LessonCatalog catalog() {
@@ -81,5 +85,12 @@ public final class LessonPortalPlugin extends JavaPlugin {
                         && pos.y() == block.getY()
                         && pos.z() == block.getZ())
                 .orElse(false);
+    }
+
+    public boolean isBoundShelf(Block block) {
+        return layout.shelves().stream().anyMatch(pos -> pos.world().equals(block.getWorld().getName())
+                && pos.x() == block.getX()
+                && pos.y() == block.getY()
+                && pos.z() == block.getZ());
     }
 }
