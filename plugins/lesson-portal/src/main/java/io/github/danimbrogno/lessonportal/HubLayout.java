@@ -120,6 +120,22 @@ public final class HubLayout {
         return hub.isPresent() && lectern.isPresent() && portal.isPresent() && !shelves.isEmpty();
     }
 
+    public HubLayout withHub(BoundBox newHub) {
+        return new HubLayout(Optional.of(newHub), lectern, shelves, portal);
+    }
+
+    public HubLayout withLectern(BlockPos newLectern) {
+        return new HubLayout(hub, Optional.of(newLectern), shelves, portal);
+    }
+
+    public HubLayout withShelves(List<BlockPos> newShelves) {
+        return new HubLayout(hub, lectern, newShelves, portal);
+    }
+
+    public HubLayout withPortal(BoundBox newPortal) {
+        return new HubLayout(hub, lectern, shelves, Optional.of(newPortal));
+    }
+
     private static Optional<BoundBox> buildBox(
             Logger logger, String name,
             String world,

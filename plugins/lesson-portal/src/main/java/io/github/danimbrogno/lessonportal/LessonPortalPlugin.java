@@ -6,6 +6,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.bukkit.block.Block;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class LessonPortalPlugin extends JavaPlugin {
@@ -16,6 +17,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
     private ActiveLessonStore store;
     private BookFactory books;
     private ShelfService shelfService;
+    private final SelectionSession selection = new SelectionSession();
 
     @Override
     public void onEnable() {
@@ -37,6 +39,15 @@ public final class LessonPortalPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PortalListener(this), this);
         getServer().getPluginManager().registerEvents(new BookGuardListener(this), this);
 
+        LessonPortalCommand command = new LessonPortalCommand(this);
+        PluginCommand pluginCommand = getCommand("lessonportal");
+        if (pluginCommand != null) {
+            pluginCommand.setExecutor(command);
+            pluginCommand.setTabCompleter(command);
+        } else {
+            getLogger().severe("Command 'lessonportal' missing from plugin.yml");
+        }
+
         getLogger().info("LessonPortal enabled!");
     }
 
@@ -48,14 +59,27 @@ public final class LessonPortalPlugin extends JavaPlugin {
     public void reloadAll() {
         reloadConfig();
         catalog = LessonCatalog.load(getConfig(), getLogger());
-        layout = LayoutIO.load(new File(getDataFolder(), "layout.yml"), getLogger());
         store.retainIfKnown(catalog.lessons().stream()
                 .map(LessonDefinition::id)
                 .collect(Collectors.toUnmodifiableSet()));
+        applyLayoutAndRepair();
+    }
+
+    /**
+     * Re-reads {@code layout.yml} from disk and repairs shelves against it. Used both by
+     * {@link #reloadAll()} and by {@link LessonPortalCommand} after every layout-mutating
+     * subcommand writes a fresh {@code layout.yml} via {@link LayoutIO#save}.
+     */
+    public void applyLayoutAndRepair() {
+        layout = LayoutIO.load(layoutFile(), getLogger());
         shelfService.repair();
         if (layout.hub().isEmpty()) {
             getLogger().warning("Book guard disabled: hub bounds not configured.");
         }
+    }
+
+    public File layoutFile() {
+        return new File(getDataFolder(), "layout.yml");
     }
 
     public LessonCatalog catalog() {
@@ -76,6 +100,10 @@ public final class LessonPortalPlugin extends JavaPlugin {
 
     public ShelfService shelfService() {
         return shelfService;
+    }
+
+    public SelectionSession selection() {
+        return selection;
     }
 
     public boolean isBoundLectern(Block block) {
