@@ -12,7 +12,7 @@ Each subfolder is a standalone Paper 1.21.x plugin (Java 21), bootstrapped from 
 ## Build a plugin or lesson
 
 ```bash
-cd plugins/region-lock   # or plugins/club-support / lessons/starter-lesson
+cd plugins/region-lock   # or plugins/lesson-portal / plugins/club-support / lessons/starter-lesson
 ./gradlew build
 ```
 
