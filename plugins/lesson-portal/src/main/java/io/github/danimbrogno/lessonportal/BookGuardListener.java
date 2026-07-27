@@ -1,13 +1,12 @@
 package io.github.danimbrogno.lessonportal;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -25,6 +24,7 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -68,6 +68,30 @@ public final class BookGuardListener implements Listener {
         }
     }
 
+    /**
+     * {@link PlayerTeleportEvent} is fired separately from {@link PlayerMoveEvent} (Bukkit does not
+     * dispatch move handlers for teleports even though the event extends it), so portal-driven
+     * teleports out of the hub (e.g. {@link PortalListener}) need their own strip check here.
+     * Any teleport landing outside the hub is treated the same whether it started inside the hub
+     * or not, since a player already outside the hub should never be holding tagged books.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent event) {
+        Optional<BoundBox> hub = plugin.layout().hub();
+        if (hub.isEmpty()) {
+            return;
+        }
+
+        Location to = event.getTo();
+        if (to == null || to.getWorld() == null || containsLocation(hub.get(), to)) {
+            return;
+        }
+
+        if (stripLessonBooks(event.getPlayer().getInventory())) {
+            plugin.shelfService().repair();
+        }
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) {
         Optional<BoundBox> hub = plugin.layout().hub();
@@ -80,7 +104,9 @@ public final class BookGuardListener implements Listener {
             return;
         }
 
-        if (containsLocation(hub.get(), event.getPlayer().getLocation())) {
+        boolean playerInside = containsLocation(hub.get(), event.getPlayer().getLocation());
+        boolean dropInside = containsLocation(hub.get(), drop.getLocation());
+        if (playerInside && dropInside) {
             event.setCancelled(true);
             return;
         }
@@ -132,10 +158,14 @@ public final class BookGuardListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
-        if (plugin.layout().hub().isEmpty()) {
+        Optional<BoundBox> hub = plugin.layout().hub();
+        if (hub.isEmpty()) {
             return;
         }
         Player player = event.getEntity();
+        if (!containsLocation(hub.get(), player.getLocation())) {
+            return;
+        }
         List<String> lessonIds = collectLessonIds(player.getInventory());
         if (!lessonIds.isEmpty()) {
             lostLessonIds.put(player.getUniqueId(), lessonIds);
@@ -153,12 +183,21 @@ public final class BookGuardListener implements Listener {
             return;
         }
 
-        Set<String> present = new HashSet<>(collectLessonIds(player.getInventory()));
-        for (String id : lostIds) {
-            if (present.contains(id)) {
+        Map<String, Long> expectedCounts = lostIds.stream()
+                .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
+        Map<String, Long> presentCounts = collectLessonIds(player.getInventory()).stream()
+                .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
+
+        for (Map.Entry<String, Long> entry : expectedCounts.entrySet()) {
+            long missing = entry.getValue() - presentCounts.getOrDefault(entry.getKey(), 0L);
+            if (missing <= 0) {
                 continue;
             }
-            plugin.catalog().get(id).ifPresent(lesson -> player.getInventory().addItem(plugin.books().create(lesson)));
+            plugin.catalog().get(entry.getKey()).ifPresent(lesson -> {
+                for (int i = 0; i < missing; i++) {
+                    player.getInventory().addItem(plugin.books().create(lesson));
+                }
+            });
         }
         plugin.shelfService().repair();
     }
