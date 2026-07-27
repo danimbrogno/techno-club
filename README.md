@@ -23,6 +23,7 @@ JAR output: `build/libs/<Name>-1.0.0-SNAPSHOT.jar` — copy into your Paper serv
 | Path | Role |
 |------|------|
 | `plugins/region-lock` | Locks place/break inside named config zones |
+| `plugins/lesson-portal` | Lectern book selector + shared lesson portal |
 | `plugins/club-support` | Blank always-on support plugin |
 | `lessons/starter-lesson` | Blank lesson plugin to copy for new lessons |
 

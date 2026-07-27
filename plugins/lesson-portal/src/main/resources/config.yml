@@ -1,0 +1,17 @@
+lessons:
+  redstone-101:
+    title: "Redstone 101"
+    author: "Techno Club"
+    destination:
+      world: lesson_redstone
+      x: 0
+      y: 64
+      z: 0
+      yaw: 0
+      pitch: 0
+
+messages:
+  portal-inactive: "Place a lesson book on the lectern first."
+  world-missing: "Lesson world '{world}' is not loaded."
+  portal-set: "Portal set to {title}."
+  portal-cleared: "Portal cleared."

@@ -1,0 +1,14 @@
+name: LessonPortal
+version: ${version}
+main: io.github.danimbrogno.lessonportal.LessonPortalPlugin
+api-version: '1.21'
+description: Hub lesson book selector and shared portal teleport.
+commands:
+  lessonportal:
+    description: Bind hub layout, reload, and status for Lesson Portal.
+    usage: /lessonportal <pos1|pos2|sethub|setportal|setlectern|addshelf|clearshelves|reload|status|clear>
+    permission: lessonportal.admin
+permissions:
+  lessonportal.admin:
+    description: Administer Lesson Portal binds and reload.
+    default: op
