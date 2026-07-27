@@ -15,6 +15,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
     private HubLayout layout = HubLayout.empty();
     private ActiveLessonStore store;
     private BookFactory books;
+    private ShelfService shelfService;
 
     @Override
     public void onEnable() {
@@ -24,6 +25,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
         }
 
         books = new BookFactory(this);
+        shelfService = new ShelfService(this);
         store = new ActiveLessonStore(new File(getDataFolder(), "active-lesson.yml").toPath());
         store.load();
 
@@ -49,11 +51,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
         store.retainIfKnown(catalog.lessons().stream()
                 .map(LessonDefinition::id)
                 .collect(Collectors.toUnmodifiableSet()));
-        repairShelves();
-    }
-
-    private void repairShelves() {
-        // ShelfService is introduced in a later task; no-op until it exists.
+        shelfService.repair();
     }
 
     public LessonCatalog catalog() {
@@ -70,6 +68,10 @@ public final class LessonPortalPlugin extends JavaPlugin {
 
     public BookFactory books() {
         return books;
+    }
+
+    public ShelfService shelfService() {
+        return shelfService;
     }
 
     public boolean isBoundLectern(Block block) {
