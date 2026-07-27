@@ -1,6 +1,7 @@
 package io.github.danimbrogno.lessonportal;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,7 +45,7 @@ public final class ActiveLessonStore {
         try {
             current = parse(Files.readString(file, StandardCharsets.UTF_8));
         } catch (IOException e) {
-            current = Optional.empty();
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -59,8 +60,8 @@ public final class ActiveLessonStore {
             } else {
                 Files.writeString(file, PREFIX + " " + current.get() + "\n", StandardCharsets.UTF_8);
             }
-        } catch (IOException ignored) {
-            // Persistence failure leaves in-memory state unchanged.
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -77,11 +78,25 @@ public final class ActiveLessonStore {
                 continue;
             }
             String value = trimmed.substring(PREFIX.length()).trim();
-            if (value.isEmpty() || "null".equalsIgnoreCase(value)) {
+            if (isInactiveValue(value)) {
                 return Optional.empty();
             }
             return Optional.of(value);
         }
         return Optional.empty();
+    }
+
+    private static boolean isInactiveValue(String value) {
+        if (value.isBlank() || "null".equalsIgnoreCase(value)) {
+            return true;
+        }
+        if (value.length() >= 2) {
+            char first = value.charAt(0);
+            char last = value.charAt(value.length() - 1);
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                return value.substring(1, value.length() - 1).isBlank();
+            }
+        }
+        return false;
     }
 }
