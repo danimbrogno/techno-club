@@ -3,6 +3,7 @@ package io.github.danimbrogno.lessonportal;
 import java.util.Optional;
 
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerTakeLecternBookEvent;
 
@@ -17,6 +18,12 @@ public final class LecternListener implements Listener {
         this.plugin = plugin;
     }
 
+    /**
+     * Runs at NORMAL priority (default, cancellable) purely to reject unknown/uncatalogued
+     * books before other plugins act on the event. Must not touch {@link ActiveLessonStore}
+     * here: a later listener could still cancel the event, which would desync the store from
+     * the lectern's actual contents.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onInsertBook(PlayerInsertLecternBookEvent event) {
         if (!plugin.isBoundLectern(event.getBlock())) {
@@ -32,6 +39,27 @@ public final class LecternListener implements Listener {
         Optional<LessonDefinition> lesson = plugin.catalog().get(lessonId.get());
         if (lesson.isEmpty()) {
             event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Runs at MONITOR, after every other listener has had a chance to cancel the event.
+     * Only here do we mutate the store, and only if the event survived uncancelled — this
+     * keeps {@link ActiveLessonStore} in sync with what actually ended up in the lectern.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInsertBookMonitor(PlayerInsertLecternBookEvent event) {
+        if (!plugin.isBoundLectern(event.getBlock())) {
+            return;
+        }
+
+        Optional<String> lessonId = plugin.books().readLessonId(event.getBook());
+        if (lessonId.isEmpty()) {
+            return;
+        }
+
+        Optional<LessonDefinition> lesson = plugin.catalog().get(lessonId.get());
+        if (lesson.isEmpty()) {
             return;
         }
 
@@ -40,7 +68,11 @@ public final class LecternListener implements Listener {
         plugin.getServer().broadcast(Component.text(message));
     }
 
-    @EventHandler(ignoreCancelled = true)
+    /**
+     * MONITOR + ignoreCancelled so the store is only cleared once the take is final and no
+     * other listener vetoed it.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTakeBook(PlayerTakeLecternBookEvent event) {
         if (!plugin.isBoundLectern(event.getLectern().getBlock())) {
             return;
