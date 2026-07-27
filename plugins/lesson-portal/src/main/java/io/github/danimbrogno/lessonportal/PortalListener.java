@@ -13,6 +13,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import net.kyori.adventure.text.Component;
 
@@ -71,6 +72,11 @@ public final class PortalListener implements Listener {
         if (!player.teleport(location)) {
             denyWithCooldown(player, TELEPORT_FAILED_MESSAGE);
         }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        lastDenyMessageAt.remove(event.getPlayer().getUniqueId());
     }
 
     private void denyWithCooldown(Player player, String message) {

@@ -38,6 +38,7 @@ public final class LessonPortalPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LecternListener(this), this);
         getServer().getPluginManager().registerEvents(new PortalListener(this), this);
         getServer().getPluginManager().registerEvents(new BookGuardListener(this), this);
+        getServer().getPluginManager().registerEvents(selection, this);
 
         LessonPortalCommand command = new LessonPortalCommand(this);
         PluginCommand pluginCommand = getCommand("lessonportal");

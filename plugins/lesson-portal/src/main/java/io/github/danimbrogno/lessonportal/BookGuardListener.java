@@ -21,8 +21,10 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.BlockInventoryHolder;
@@ -143,6 +145,21 @@ public final class BookGuardListener implements Listener {
         }
     }
 
+    /**
+     * Blocks hopper/hopper-minecart vacuuming of tagged books out of bound shelves or lecterns;
+     * without this a hopper could suck a book out from underneath {@link #onInventoryMoveItem}'s
+     * container-to-container guard.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onInventoryPickupItem(InventoryPickupItemEvent event) {
+        if (plugin.layout().hub().isEmpty()) {
+            return;
+        }
+        if (plugin.books().isLessonBook(event.getItem().getItemStack())) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
         if (plugin.layout().hub().isEmpty()) {
@@ -156,6 +173,12 @@ public final class BookGuardListener implements Listener {
         }
     }
 
+    /**
+     * Tagged books are made immortal on the ground (see {@link #onItemDamage} and
+     * {@link #onItemDespawn}), so any that end up in {@link PlayerDeathEvent#getDrops()} must be
+     * stripped here or they would linger forever as indestructible ground items. Shelf repair
+     * (triggered on respawn) recreates them.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
         Optional<BoundBox> hub = plugin.layout().hub();
@@ -170,8 +193,15 @@ public final class BookGuardListener implements Listener {
         if (!lessonIds.isEmpty()) {
             lostLessonIds.put(player.getUniqueId(), lessonIds);
         }
+        event.getDrops().removeIf(plugin.books()::isLessonBook);
     }
 
+    /**
+     * Only restores books directly into the player's inventory when they respawn inside the hub;
+     * a respawn elsewhere (e.g. a bed set up outside the hub) must not hand out tagged books that
+     * could then leave the hub. Shelf repair still runs either way so the books are always
+     * available again on the shelves.
+     */
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
         if (plugin.layout().hub().isEmpty()) {
@@ -180,6 +210,13 @@ public final class BookGuardListener implements Listener {
         Player player = event.getPlayer();
         List<String> lostIds = lostLessonIds.remove(player.getUniqueId());
         if (lostIds == null || lostIds.isEmpty()) {
+            plugin.shelfService().repair();
+            return;
+        }
+
+        Optional<BoundBox> hub = plugin.layout().hub();
+        if (hub.isEmpty() || !containsLocation(hub.get(), event.getRespawnLocation())) {
+            plugin.shelfService().repair();
             return;
         }
 
@@ -200,6 +237,11 @@ public final class BookGuardListener implements Listener {
             });
         }
         plugin.shelfService().repair();
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        lostLessonIds.remove(event.getPlayer().getUniqueId());
     }
 
     private boolean stripLessonBooks(PlayerInventory inventory) {

@@ -65,7 +65,7 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
             case "clearshelves" -> handleClearShelves(sender);
             case "reload" -> handleReload(sender);
             case "status" -> handleStatus(sender);
-            case "clear" -> handleClear();
+            case "clear" -> handleClear(sender);
             default -> sendUsage(sender, label);
         }
         return true;
@@ -172,13 +172,18 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         sender.sendMessage("- Layout complete: " + (layout.isComplete() ? "yes" : "no"));
     }
 
-    private void handleClear() {
-        ejectLecternBook();
+    private void handleClear(CommandSender sender) {
+        ejectLecternBook(sender);
         plugin.store().clear();
         plugin.getServer().broadcast(Component.text(plugin.catalog().message("portal-cleared")));
     }
 
-    private void ejectLecternBook() {
+    /**
+     * Removes the book from the bound lectern without dropping it in the world; tagged books are
+     * made immortal/immovable while inside the hub (see {@link BookGuardListener}), so a natural
+     * drop would just sit there forever. Shelf repair recreates the book on its shelf instead.
+     */
+    private void ejectLecternBook(CommandSender sender) {
         Optional<BlockPos> lecternPos = plugin.layout().lectern();
         if (lecternPos.isEmpty()) {
             return;
@@ -186,6 +191,7 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         BlockPos pos = lecternPos.get();
         World world = plugin.getServer().getWorld(pos.world());
         if (world == null) {
+            sender.sendMessage("Lectern world not loaded; could not clear lectern book.");
             return;
         }
         Block block = world.getBlockAt(pos.x(), pos.y(), pos.z());
@@ -200,8 +206,9 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         if (book == null) {
             return;
         }
-        world.dropItemNaturally(block.getLocation().add(0.5, 1.0, 0.5), book);
         lectern.getInventory().setItem(0, null);
+        plugin.shelfService().repair();
+        sender.sendMessage("Lectern book cleared and returned to its shelf.");
     }
 
     private Optional<BoundBox> selectionBox(CommandSender sender, UUID player) {
