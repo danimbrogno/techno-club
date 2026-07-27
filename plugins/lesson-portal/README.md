@@ -11,7 +11,7 @@ cd plugins/lesson-portal
 
 Output: `build/libs/LessonPortal-1.0.0-SNAPSHOT.jar`
 
-Copy the JAR into your Paper server's `plugins/` folder. On first run the plugin creates `plugins/LessonPortal/config.yml`, `layout.yml`, and `active-lesson.yml`.
+Copy the JAR into your Paper server's `plugins/` folder. On first run the plugin creates `plugins/LessonPortal/config.yml` and `layout.yml`. `active-lesson.yml` is written when an active lesson is set or cleared and persists across restarts.
 
 ## Hub setup
 
