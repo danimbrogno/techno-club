@@ -1,16 +1,68 @@
 package io.github.danimbrogno.lessonportal;
 
+import java.io.File;
+import java.util.Map;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class LessonPortalPlugin extends JavaPlugin {
 
+    private LessonCatalog catalog = LessonCatalog.fromEntries(
+            Map.of(), Map.of(), Logger.getLogger(LessonPortalPlugin.class.getName()));
+    private HubLayout layout = HubLayout.empty();
+    private ActiveLessonStore store;
+    private BookFactory books;
+
     @Override
     public void onEnable() {
+        saveDefaultConfig();
+        saveResource("layout.yml", false);
+
+        books = new BookFactory(this);
+        store = new ActiveLessonStore(new File(getDataFolder(), "active-lesson.yml").toPath());
+        store.load();
+
+        reloadAll();
+
+        store.current().ifPresent(id -> getLogger().info("Active lesson on startup: " + id));
+
         getLogger().info("LessonPortal enabled!");
     }
 
     @Override
     public void onDisable() {
         getLogger().info("LessonPortal disabled!");
+    }
+
+    public void reloadAll() {
+        reloadConfig();
+        catalog = LessonCatalog.load(getConfig(), getLogger());
+        layout = LayoutIO.load(new File(getDataFolder(), "layout.yml"), getLogger());
+        store.retainIfKnown(catalog.lessons().stream()
+                .map(LessonDefinition::id)
+                .collect(Collectors.toUnmodifiableSet()));
+        repairShelves();
+    }
+
+    private void repairShelves() {
+        // ShelfService is introduced in a later task; no-op until it exists.
+    }
+
+    public LessonCatalog catalog() {
+        return catalog;
+    }
+
+    public HubLayout layout() {
+        return layout;
+    }
+
+    public ActiveLessonStore store() {
+        return store;
+    }
+
+    public BookFactory books() {
+        return books;
     }
 }
