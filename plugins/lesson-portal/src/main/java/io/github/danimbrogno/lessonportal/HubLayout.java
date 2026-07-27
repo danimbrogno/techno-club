@@ -129,7 +129,7 @@ public final class HubLayout {
     }
 
     public HubLayout withShelves(List<BlockPos> newShelves) {
-        return new HubLayout(hub, lectern, newShelves, portal);
+        return new HubLayout(hub, lectern, List.copyOf(newShelves), portal);
     }
 
     public HubLayout withPortal(BoundBox newPortal) {

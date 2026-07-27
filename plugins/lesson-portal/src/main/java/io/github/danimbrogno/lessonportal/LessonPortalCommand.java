@@ -1,10 +1,12 @@
 package io.github.danimbrogno.lessonportal;
 
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
 
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -93,8 +95,9 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         if (box.isEmpty()) {
             return;
         }
-        saveAndApply(plugin.layout().withHub(box.get()));
-        sender.sendMessage("Hub bound: " + box.get().describe());
+        if (saveAndApply(sender, plugin.layout().withHub(box.get()))) {
+            sender.sendMessage("Hub bound: " + box.get().describe());
+        }
     }
 
     private void handleSetPortal(CommandSender sender) {
@@ -106,8 +109,9 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         if (box.isEmpty()) {
             return;
         }
-        saveAndApply(plugin.layout().withPortal(box.get()));
-        sender.sendMessage("Portal bound: " + box.get().describe());
+        if (saveAndApply(sender, plugin.layout().withPortal(box.get()))) {
+            sender.sendMessage("Portal bound: " + box.get().describe());
+        }
     }
 
     private void handleSetLectern(CommandSender sender) {
@@ -121,8 +125,9 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
             return;
         }
         BlockPos pos = toBlockPos(target);
-        saveAndApply(plugin.layout().withLectern(pos));
-        sender.sendMessage("Lectern bound at " + describe(pos));
+        if (saveAndApply(sender, plugin.layout().withLectern(pos))) {
+            sender.sendMessage("Lectern bound at " + describe(pos));
+        }
     }
 
     private void handleAddShelf(CommandSender sender) {
@@ -138,13 +143,15 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         BlockPos pos = toBlockPos(target);
         List<BlockPos> shelves = new ArrayList<>(plugin.layout().shelves());
         shelves.add(pos);
-        saveAndApply(plugin.layout().withShelves(shelves));
-        sender.sendMessage("Shelf added at " + describe(pos) + " (" + shelves.size() + " total).");
+        if (saveAndApply(sender, plugin.layout().withShelves(shelves))) {
+            sender.sendMessage("Shelf added at " + describe(pos) + " (" + shelves.size() + " total).");
+        }
     }
 
     private void handleClearShelves(CommandSender sender) {
-        saveAndApply(plugin.layout().withShelves(List.of()));
-        sender.sendMessage("All bound shelves cleared.");
+        if (saveAndApply(sender, plugin.layout().withShelves(List.of()))) {
+            sender.sendMessage("All bound shelves cleared.");
+        }
     }
 
     private void handleReload(CommandSender sender) {
@@ -213,9 +220,16 @@ public final class LessonPortalCommand implements CommandExecutor, TabCompleter 
         return Optional.of(BoundBox.of(a.world(), a.x(), a.y(), a.z(), b.x(), b.y(), b.z()));
     }
 
-    private void saveAndApply(HubLayout newLayout) {
-        LayoutIO.save(plugin.layoutFile(), newLayout);
+    private boolean saveAndApply(CommandSender sender, HubLayout newLayout) {
+        try {
+            LayoutIO.save(plugin.layoutFile(), newLayout);
+        } catch (UncheckedIOException e) {
+            sender.sendMessage("Failed to save layout.yml: " + e.getCause().getMessage());
+            plugin.getLogger().log(Level.SEVERE, "Failed to save layout.yml", e.getCause());
+            return false;
+        }
         plugin.applyLayoutAndRepair();
+        return true;
     }
 
     private String activeLessonSummary() {
