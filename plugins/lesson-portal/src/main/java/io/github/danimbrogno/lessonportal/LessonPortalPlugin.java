@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import org.bukkit.block.Block;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class LessonPortalPlugin extends JavaPlugin {
@@ -29,6 +30,8 @@ public final class LessonPortalPlugin extends JavaPlugin {
         reloadAll();
 
         store.current().ifPresent(id -> getLogger().info("Active lesson on startup: " + id));
+
+        getServer().getPluginManager().registerEvents(new LecternListener(this), this);
 
         getLogger().info("LessonPortal enabled!");
     }
@@ -66,5 +69,14 @@ public final class LessonPortalPlugin extends JavaPlugin {
 
     public BookFactory books() {
         return books;
+    }
+
+    public boolean isBoundLectern(Block block) {
+        return layout.lectern()
+                .map(pos -> pos.world().equals(block.getWorld().getName())
+                        && pos.x() == block.getX()
+                        && pos.y() == block.getY()
+                        && pos.z() == block.getZ())
+                .orElse(false);
     }
 }
