@@ -1,0 +1,5 @@
+# Bound by /lessonportal commands (or edit + /lessonportal reload)
+hub: {}
+lectern: {}
+shelves: []
+portal: {}

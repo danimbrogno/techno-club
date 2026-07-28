@@ -12,7 +12,7 @@ Each subfolder is a standalone Paper 1.21.x plugin (Java 21), bootstrapped from 
 ## Build a plugin or lesson
 
 ```bash
-cd plugins/region-lock   # or plugins/club-support / lessons/starter-lesson
+cd plugins/region-lock   # or plugins/lesson-portal / plugins/club-support / lessons/starter-lesson
 ./gradlew build
 ```
 
@@ -23,6 +23,7 @@ JAR output: `build/libs/<Name>-1.0.0-SNAPSHOT.jar` — copy into your Paper serv
 | Path | Role |
 |------|------|
 | `plugins/region-lock` | Locks place/break inside named config zones |
+| `plugins/lesson-portal` | Lectern book selector + shared lesson portal |
 | `plugins/club-support` | Blank always-on support plugin |
 | `lessons/starter-lesson` | Blank lesson plugin to copy for new lessons |
 
