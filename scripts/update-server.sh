@@ -381,7 +381,7 @@ if (( ${#CHANGED[@]} == 0 )); then
 fi
 
 log "Updates ready:"
-printf '  - %s\n' "${CHANGED[@]}"
+printf '  - %s\n' "${CHANGED[@]}" >&2
 
 if [[ "$DRY_RUN" == true ]]; then
   log "Dry run complete; nothing was changed."
