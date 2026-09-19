@@ -27,3 +27,8 @@ JAR output: `build/libs/<Name>-1.0.0-SNAPSHOT.jar` — copy into your Paper serv
 | `lessons/starter-lesson` | Blank lesson plugin to copy for new lessons |
 
 To add a new lesson or support plugin, copy the matching starter (or `plugins/template` from the minecraft repo) and rename the Gradle project, `plugin.yml`, package, and main class.
+
+## Server updates
+
+Paper, Geyser and Floodgate are updated by `scripts/update-server.sh`, run
+weekly from cron on the server. See [docs/server-updates.md](docs/server-updates.md).

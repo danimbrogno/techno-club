@@ -70,9 +70,11 @@ jobs:
           fi
 
           SHARED_HIT=false
+          HAS_SCRIPT=false
           UNITS=()
 
           if [[ "$DEPLOY_ALL" == "true" ]]; then
+            HAS_SCRIPT=true
             mapfile -t UNITS < <(list_all_units)
           else
             BEFORE="${{ github.event.before }}"
@@ -82,6 +84,7 @@ jobs:
 
             if [[ -z "$BEFORE" ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
               echo "No usable base commit; building all units"
+              HAS_SCRIPT=true
               mapfile -t UNITS < <(list_all_units)
             else
               mapfile -t CHANGED < <(git diff --name-only "$BEFORE" "${{ github.sha }}")
@@ -89,6 +92,11 @@ jobs:
                 case "$path" in
                   .github/workflows/deploy.yml|scripts/remote-restart.sh)
                     SHARED_HIT=true
+                    ;;
+                  scripts/update-server.sh)
+                    # Server-side script: ship it, but it is no reason to
+                    # rebuild plugins or restart the server.
+                    HAS_SCRIPT=true
                     ;;
                   gradle/*|**/gradle/wrapper/*|settings.gradle.kts|settings.gradle|build.gradle.kts|build.gradle)
                     # Root-level shared build files (if added later)
@@ -115,10 +123,12 @@ jobs:
             fi
           fi
 
+          echo "has_script=$HAS_SCRIPT" >> "$GITHUB_OUTPUT"
+
           if [[ ${#UNITS[@]} -eq 0 ]]; then
             echo "units="
             echo "has_units=false" >> "$GITHUB_OUTPUT"
-            echo "No plugin/lesson units to build"
+            echo "No plugin/lesson units to build (update script: $HAS_SCRIPT)"
             exit 0
           fi
 
@@ -175,7 +185,7 @@ jobs:
           ls -la _deploy/
 
       - name: Connect to Tailscale
-        if: steps.detect.outputs.has_units == 'true'
+        if: steps.detect.outputs.has_units == 'true' || steps.detect.outputs.has_script == 'true'
         uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ vars.TAILSCALE_OAUTH_CLIENT_ID }}
@@ -183,7 +193,7 @@ jobs:
           tags: tag:ci-technoclub
 
       - name: Configure SSH
-        if: steps.detect.outputs.has_units == 'true'
+        if: steps.detect.outputs.has_units == 'true' || steps.detect.outputs.has_script == 'true'
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
@@ -198,6 +208,17 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
             _deploy/ \
             "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/plugins/"
+
+      - name: Deploy server update script
+        if: steps.detect.outputs.has_script == 'true'
+        run: |
+          # /srv/minecraft itself is not writable by tcdeploy; /srv/minecraft/bin
+          # is (danimbrogno:tcdeploy, 775). Cron re-reads the file every run, so
+          # shipping it needs no restart.
+          rsync -vz --omit-dir-times --no-owner --no-group --chmod=F755 \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            scripts/update-server.sh \
+            "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/bin/update-server.sh"
 
       - name: Restart Minecraft server
         if: steps.detect.outputs.has_units == 'true'
