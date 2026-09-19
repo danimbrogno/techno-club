@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Canonical copy of /srv/minecraft/update-server.sh on aztec-validator.
-# Keep in sync when changing update behavior.
+# Deployed to /srv/minecraft/bin/update-server.sh on aztec-validator by
+# .github/workflows/deploy.yml. Edit here, not on the server.
 #
 # Updates the Paper server jar and third-party plugins (Geyser, Floodgate, ...)
 # to their latest *stable* releases, restarting only when something changed.

@@ -1,8 +1,9 @@
 # Server updates (Paper + Geyser)
 
 `scripts/update-server.sh` keeps the Paper server jar and third-party plugins
-current on `aztec-validator`. It is the canonical copy of
-`/srv/minecraft/update-server.sh`; keep the two in sync.
+current on `aztec-validator`. CI deploys it to
+`/srv/minecraft/bin/update-server.sh` on merge to `main`, so edit it here and
+never on the server.
 
 Plugins built from this repo (`plugins/*`, `lessons/*`) are **not** touched —
 those are deployed by `.github/workflows/deploy.yml`.
@@ -35,19 +36,31 @@ HOLD: this is a Minecraft version change (26.1.2 -> 26.2), not just a build upda
 To take it, check Bedrock support, then run once by hand:
 
 ```bash
-/srv/minecraft/update-server.sh --allow-version-bump
+/srv/minecraft/bin/update-server.sh --allow-version-bump
 ```
 
 Paper 26.x requires **Java 25+**. The script refuses to install a version the
 installed JDK cannot run rather than leaving a server that will not boot.
 
-## Install on the server
+## One-time server setup
+
+CI writes as `tcdeploy`, which cannot write to `/srv/minecraft` itself, so the
+script lands in a dedicated directory:
 
 ```bash
 sudo apt install -y jq unzip
-# copy scripts/update-server.sh to the server, then:
-install -m 755 -o danimbrogno -g danimbrogno update-server.sh /srv/minecraft/update-server.sh
-/srv/minecraft/update-server.sh --dry-run
+sudo install -d -o danimbrogno -g tcdeploy -m 775 /srv/minecraft/bin
+```
+
+After that, merging to `main` ships the current version automatically — no
+restart involved, since cron re-reads the file on every run. Changing only
+`scripts/update-server.sh` deploys the script and nothing else: no plugin
+rebuild, no server restart.
+
+Verify with:
+
+```bash
+/srv/minecraft/bin/update-server.sh --dry-run
 ```
 
 ## Cron
@@ -56,7 +69,7 @@ As `danimbrogno` (the user that owns the server process), `crontab -e`:
 
 ```cron
 # Techno Club: update Paper + Geyser weekly, Monday 05:30
-30 5 * * 1 /bin/bash -lc '/srv/minecraft/update-server.sh' >> /srv/minecraft/logs/update.log 2>&1 || echo "Techno Club server update FAILED - see /srv/minecraft/logs/update.log"
+30 5 * * 1 /bin/bash -lc '/srv/minecraft/bin/update-server.sh' >> /srv/minecraft/logs/update.log 2>&1 || echo "Techno Club server update FAILED - see /srv/minecraft/logs/update.log"
 ```
 
 `bash -lc` gives cron the login `PATH` so `java` resolves; otherwise set
