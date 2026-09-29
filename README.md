@@ -32,3 +32,8 @@ To add a new lesson or support plugin, copy the matching starter (or `plugins/te
 
 Paper, Geyser and Floodgate are updated by `scripts/update-server.sh`, run
 weekly from cron on the server. See [docs/server-updates.md](docs/server-updates.md).
+
+## Moving to a new server
+
+`scripts/setup-new-server.sh` prepares the new machine; `scripts/migrate-server.sh`
+then copies the server to it over SSH and cuts over. See [docs/server-migration.md](docs/server-migration.md).
