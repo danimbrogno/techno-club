@@ -93,8 +93,8 @@ jobs:
                   .github/workflows/deploy.yml|scripts/remote-restart.sh)
                     SHARED_HIT=true
                     ;;
-                  scripts/update-server.sh)
-                    # Server-side script: ship it, but it is no reason to
+                  scripts/update-server.sh|scripts/migrate-server.sh)
+                    # Server-side scripts: ship them, but they are no reason to
                     # rebuild plugins or restart the server.
                     HAS_SCRIPT=true
                     ;;
@@ -209,16 +209,16 @@ jobs:
             _deploy/ \
             "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/plugins/"
 
-      - name: Deploy server update script
+      - name: Deploy server scripts
         if: steps.detect.outputs.has_script == 'true'
         run: |
           # /srv/minecraft itself is not writable by tcdeploy; /srv/minecraft/bin
-          # is (danimbrogno:tcdeploy, 775). Cron re-reads the file every run, so
-          # shipping it needs no restart.
+          # is (danimbrogno:tcdeploy, 775). Cron re-reads update-server.sh every
+          # run and migrate-server.sh is run by hand, so shipping needs no restart.
           rsync -vz --omit-dir-times --no-owner --no-group --chmod=F755 \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
-            scripts/update-server.sh \
-            "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/bin/update-server.sh"
+            scripts/update-server.sh scripts/migrate-server.sh \
+            "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/srv/minecraft/bin/"
 
       - name: Restart Minecraft server
         if: steps.detect.outputs.has_units == 'true'
